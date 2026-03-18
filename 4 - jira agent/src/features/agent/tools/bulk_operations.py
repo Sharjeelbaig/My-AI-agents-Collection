@@ -1,48 +1,11 @@
 from langchain_core.tools import StructuredTool
-from pydantic import BaseModel, Field
 from typing import List, Optional
 from src.shared.jira_client import jira_client
-
-
-# ─────────────────────────────────────────────────────────
-# Schema definitions
-# ─────────────────────────────────────────────────────────
-
-class BulkDeleteInput(BaseModel):
-    ticket_keys: List[str] = Field(
-        description="List of ticket keys to delete (e.g., ['PROJ-1', 'PROJ-2'])"
-    )
-    confirm: bool = Field(
-        default=False,
-        description="Set to true only after user confirms the deletion"
-    )
-
-
-class DeleteByStatusInput(BaseModel):
-    status: Optional[str] = Field(
-        default=None,
-        description=(
-            "Status of tickets to delete: 'Done', 'To Do', 'In Progress', etc. "
-            "Leave empty to delete ALL tickets in the project."
-        )
-    )
-    confirm: bool = Field(
-        default=False,
-        description="Must be true to execute. Always show count first, then set true after user confirms."
-    )
-
-
-class BulkTransitionInput(BaseModel):
-    from_status: Optional[str] = Field(
-        default=None,
-        description=(
-            "Only transition tickets currently in this status. "
-            "E.g. 'To Do', 'In Progress'. Leave empty to transition ALL tickets."
-        )
-    )
-    to_status: str = Field(
-        description="Target status to move tickets to (e.g. 'Done', 'In Progress', 'To Do')"
-    )
+from src.features.agent.schemas import (
+    BulkDeleteInput,
+    BulkTransitionInput,
+    DeleteByStatusInput,
+)
 
 
 # ─────────────────────────────────────────────────────────
@@ -110,6 +73,10 @@ bulk_delete_tickets = StructuredTool(
 
 def delete_by_status_func(status: Optional[str] = None, confirm: bool = False) -> str:
     """Fetch all tickets with a given status (or all tickets) and delete them."""
+    ok, message = jira_client.ensure_project_selected()
+    if not ok:
+        return message
+
     # Fetch the matching tickets
     if status:
         tickets = jira_client.get_tickets_by_status(status)
@@ -158,8 +125,16 @@ delete_tickets_by_status = StructuredTool(
 # bulk_transition_tickets — move all (or filtered) tickets to a new status
 # ─────────────────────────────────────────────────────────
 
-def bulk_transition_func(to_status: str, from_status: Optional[str] = None) -> str:
+def bulk_transition_func(
+    to_status: str,
+    from_status: Optional[str] = None,
+    confirm: bool = False
+) -> str:
     """Transition multiple tickets to a new status in one operation."""
+    ok, message = jira_client.ensure_project_selected()
+    if not ok:
+        return message
+
     if from_status:
         tickets = jira_client.get_tickets_by_status(from_status)
         scope_label = f"in '{from_status}'"
@@ -170,13 +145,41 @@ def bulk_transition_func(to_status: str, from_status: Optional[str] = None) -> s
     if not tickets:
         return f"No tickets found {scope_label}. Nothing to transition."
 
+    transitionable = []
+    skipped = 0
+    for ticket in tickets:
+        status = (ticket.get("status") or "").lower()
+        if status == to_status.lower():
+            skipped += 1
+            continue
+        transitionable.append(ticket)
+
+    if not transitionable:
+        return f"All tickets {scope_label} are already in '{to_status}'."
+
+    if not confirm:
+        preview = "\n".join(
+            f"  [{t.get('key')}] {t.get('summary', '')} — {t.get('status')}"
+            for t in transitionable[:20]
+        )
+        more = (
+            f"\n  ... and {len(transitionable) - 20} more"
+            if len(transitionable) > 20 else ""
+        )
+        skip_note = (
+            f"\n\nSkipped {skipped} ticket(s) already in '{to_status}'."
+            if skipped else ""
+        )
+        return (
+            f"Found {len(transitionable)} ticket(s) to move to '{to_status}' {scope_label}:\n"
+            f"{preview}{more}{skip_note}\n\n"
+            "⚠️  This will change the current status. Reply 'yes' to confirm."
+        )
+
     moved, failed = [], []
-    for t in tickets:
+    for t in transitionable:
         key = t.get("key")
         if not key:
-            continue
-        # Skip tickets already at the target status
-        if (t.get("status") or "").lower() == to_status.lower():
             continue
         result = jira_client.transition_ticket(key, to_status)
         if result.get("success"):
@@ -192,8 +195,8 @@ def bulk_transition_func(to_status: str, from_status: Optional[str] = None) -> s
         lines.append(f"❌ Failed to transition {len(failed)} ticket(s):")
         for e in failed:
             lines.append(f"  {e}")
-    if not moved and not failed:
-        lines.append(f"All tickets {scope_label} are already in '{to_status}'.")
+    if skipped:
+        lines.append(f"Skipped {skipped} ticket(s) already in '{to_status}'.")
 
     return "\n".join(lines)
 
@@ -202,12 +205,15 @@ bulk_transition_tickets = StructuredTool(
     name="bulk_transition_tickets",
     func=bulk_transition_func,
     description=(
-        "Move multiple tickets to a new status in one step — NO confirmation needed (transitions are reversible). "
+        "Move multiple tickets to a new status. "
+        "Always call with confirm=false first to preview, then call again with "
+        "confirm=true once the user explicitly says yes. "
         "USE THIS instead of calling transition_ticket one-by-one when user says things like: "
         "'move all to do tickets to done', 'move everything in progress to done', "
         "'mark all tickets as complete'. "
         "Args: to_status (required, target status e.g. 'Done', 'In Progress', 'To Do'), "
-        "from_status (optional filter — only move tickets currently in this status)"
+        "from_status (optional filter — only move tickets currently in this status), "
+        "confirm (bool, default false)"
     ),
     args_schema=BulkTransitionInput,
 )

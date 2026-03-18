@@ -1,27 +1,21 @@
 from langchain_core.tools import StructuredTool
-from pydantic import BaseModel, Field
-from typing import Optional
 from src.shared.jira_client import jira_client
-
-
-class SearchTicketsInput(BaseModel):
-    query: str = Field(
-        description="Search keywords or ticket title/description to find matching tickets"
-    )
-    status: Optional[str] = Field(
-        default=None,
-        description="Filter by status (e.g., 'To Do', 'In Progress', 'Done', 'Blocked')"
-    )
+from src.features.agent.schemas import SearchTicketsInput
 
 
 def search_tickets_func(query: str, status: str = None) -> str:
     """Search for Jira tickets matching a query."""
+    ok, message = jira_client.ensure_project_selected()
+    if not ok:
+        return message
+
+    safe_query = jira_client.escape_jql_value(query)
     jql_parts = [f'project = {jira_client.project_key}']
 
-    jql_parts.append(f'(summary ~ "{query}" OR description ~ "{query}")')
+    jql_parts.append(f'(summary ~ "{safe_query}" OR description ~ "{safe_query}")')
 
     if status:
-        jql_parts.append(f'status = "{status}"')
+        jql_parts.append(f'status = "{jira_client.escape_jql_value(status)}"')
 
     jql = " AND ".join(jql_parts)
     tickets = jira_client.search_tickets(jql)

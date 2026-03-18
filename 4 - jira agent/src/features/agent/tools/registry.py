@@ -1,4 +1,5 @@
 from .create_ticket import create_ticket
+from .assign_ticket import assign_ticket
 from .delete_ticket import delete_ticket
 from .get_ticket import get_ticket
 from .get_tickets import get_in_progress, get_done, get_all_tickets
@@ -10,6 +11,7 @@ from .project_summary import get_project_summary
 
 __all__ = [
     "create_ticket",
+    "assign_ticket",
     "delete_ticket",
     "get_ticket",
     "get_in_progress",
@@ -30,6 +32,7 @@ tools = [
     delete_tickets_by_status,      # before bulk_delete so LLM prefers it for status-based deletes
     bulk_transition_tickets,       # before transition_ticket for bulk moves
     create_ticket,
+    assign_ticket,
     delete_ticket,
     get_ticket,
     get_in_progress,

@@ -1,10 +1,6 @@
 from langchain_core.tools import StructuredTool
-from pydantic import BaseModel, Field
 from src.shared.jira_client import jira_client
-
-
-class GetTicketInput(BaseModel):
-    ticket_key: str = Field(description="Jira ticket key (e.g., 'PROJ-123')")
+from src.features.agent.schemas import GetTicketInput
 
 
 def get_ticket_func(ticket_key: str) -> str:
@@ -18,7 +14,7 @@ Summary: {data.get('summary')}
 Status: {data.get('status')}
 Priority: {data.get('priority')}
 Assignee: {data.get('assignee')}
-Description: {data.get('description', 'No description')}
+Description: {data.get('description') or 'No description'}
 """
     return f"Failed to get ticket: {result.get('message')}"
 

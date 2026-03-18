@@ -1,15 +1,6 @@
 from langchain_core.tools import StructuredTool
-from pydantic import BaseModel, Field
 from src.shared.jira_client import jira_client
-
-
-class AddCommentInput(BaseModel):
-    ticket_key: str = Field(description="Jira ticket key (e.g., 'PROJ-123')")
-    comment: str = Field(description="Comment text to add to the ticket")
-
-
-class GetCommentsInput(BaseModel):
-    ticket_key: str = Field(description="Jira ticket key (e.g., 'PROJ-123')")
+from src.features.agent.schemas import AddCommentInput, GetCommentsInput
 
 
 def add_comment_func(ticket_key: str, comment: str) -> str:

@@ -1,15 +1,14 @@
 from langchain_core.tools import StructuredTool
-from pydantic import BaseModel
 from src.shared.jira_client import jira_client
-
-
-class NoInput(BaseModel):
-    """Schema for tools that don't require any input."""
-    pass
+from src.features.agent.schemas import NoInput
 
 
 def get_project_summary_func(**kwargs) -> str:
     """Get a full summary of the project: ticket counts by status, done vs remaining."""
+    ok, message = jira_client.ensure_project_selected()
+    if not ok:
+        return message
+
     summary = jira_client.get_project_summary()
 
     if summary["total"] == 0:

@@ -1,12 +1,7 @@
 from typing import List, Dict, Any
 from langchain_core.tools import StructuredTool
-from pydantic import BaseModel
 from src.shared.jira_client import jira_client
-
-
-class NoInput(BaseModel):
-    """Schema for tools that don't require any input."""
-    pass
+from src.features.agent.schemas import NoInput
 
 
 def _format_tickets(tickets: List[Dict[str, Any]], label: str = "") -> str:
@@ -34,18 +29,27 @@ def _format_tickets(tickets: List[Dict[str, Any]], label: str = "") -> str:
 
 def get_in_progress_func(**kwargs) -> str:
     """Get all tickets that are in progress."""
+    ok, message = jira_client.ensure_project_selected()
+    if not ok:
+        return message
     tickets = jira_client.get_in_progress_tickets()
     return _format_tickets(tickets)
 
 
 def get_done_func(**kwargs) -> str:
     """Get all tickets that are done."""
+    ok, message = jira_client.ensure_project_selected()
+    if not ok:
+        return message
     tickets = jira_client.get_done_tickets()
     return _format_tickets(tickets)
 
 
 def get_all_tickets_func(**kwargs) -> str:
     """Get all tickets in the current project."""
+    ok, message = jira_client.ensure_project_selected()
+    if not ok:
+        return message
     tickets = jira_client.get_all_tickets()
     return _format_tickets(tickets)
 

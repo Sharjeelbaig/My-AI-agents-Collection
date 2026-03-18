@@ -1,6 +1,6 @@
 import os
 import requests
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -23,13 +23,37 @@ class JiraClient:
         """Check if Jira credentials are configured."""
         return bool(self.url and self.email and self.api_token)
 
+    def ensure_configured(self) -> Tuple[bool, str]:
+        """Return whether Jira credentials are configured and a user-facing message."""
+        if self.is_configured():
+            return True, ""
+        return False, "Jira credentials are not configured."
+
+    def ensure_project_selected(self) -> Tuple[bool, str]:
+        """Return whether a Jira project is selected and a user-facing message."""
+        if self.project_key:
+            return True, ""
+        return False, "No project selected. Please choose a Jira project first."
+
+    @staticmethod
+    def escape_jql_value(value: str) -> str:
+        """Escape user text before interpolating it into a JQL string literal."""
+        return (
+            value.replace("\\", "\\\\")
+            .replace('"', '\\"')
+            .replace("\r", " ")
+            .replace("\n", " ")
+            .strip()
+        )
+
     def set_project(self, project_key: str):
         """Set the current project key."""
         self.project_key = project_key
 
     def get_projects(self) -> List[Dict[str, Any]]:
         """Get all projects accessible by the user."""
-        if not self.is_configured():
+        ok, _ = self.ensure_configured()
+        if not ok:
             return []
 
         try:
@@ -42,6 +66,14 @@ class JiraClient:
 
     def get_project_issue_types(self) -> List[str]:
         """Get valid issue type names for the current project."""
+        ok, _ = self.ensure_configured()
+        if not ok:
+            return ["Task"]
+
+        ok, _ = self.ensure_project_selected()
+        if not ok:
+            return ["Task"]
+
         try:
             resp = self.session.get(
                 f"{self.url}/rest/api/3/issue/createmeta",
@@ -63,8 +95,13 @@ class JiraClient:
         issue_type: str = "Task"
     ) -> Dict[str, Any]:
         """Create a new Jira ticket."""
-        if not self.project_key:
-            return {"success": False, "message": "No project selected"}
+        ok, message = self.ensure_configured()
+        if not ok:
+            return {"success": False, "message": message}
+
+        ok, message = self.ensure_project_selected()
+        if not ok:
+            return {"success": False, "message": message}
 
         # Validate and fall back to Task if issue type is not in this project
         valid_types = self.get_project_issue_types()
@@ -112,6 +149,10 @@ class JiraClient:
 
     def delete_ticket(self, ticket_key: str) -> Dict[str, Any]:
         """Delete a Jira ticket."""
+        ok, message = self.ensure_configured()
+        if not ok:
+            return {"success": False, "message": message}
+
         try:
             response = self.session.delete(
                 f"{self.url}/rest/api/3/issue/{ticket_key}"
@@ -123,6 +164,10 @@ class JiraClient:
 
     def get_ticket(self, ticket_key: str) -> Dict[str, Any]:
         """Get details of a specific ticket."""
+        ok, message = self.ensure_configured()
+        if not ok:
+            return {"success": False, "message": message}
+
         try:
             response = self.session.get(
                 f"{self.url}/rest/api/3/issue/{ticket_key}"
@@ -152,6 +197,10 @@ class JiraClient:
 
     def search_tickets(self, jql: str, max_results: int = 100) -> List[Dict[str, Any]]:
         """Search for tickets using JQL via POST (new Jira Cloud API)."""
+        ok, _ = self.ensure_configured()
+        if not ok:
+            return []
+
         try:
             response = self.session.post(
                 f"{self.url}/rest/api/3/search/jql",
@@ -184,7 +233,12 @@ class JiraClient:
 
     def get_tickets_by_status(self, status: str) -> List[Dict[str, Any]]:
         """Get all tickets with a specific status."""
-        jql = f'project = {self.project_key} AND status = "{status}"'
+        ok, _ = self.ensure_project_selected()
+        if not ok:
+            return []
+
+        safe_status = self.escape_jql_value(status)
+        jql = f'project = {self.project_key} AND status = "{safe_status}"'
         return self.search_tickets(jql)
 
     def get_in_progress_tickets(self) -> List[Dict[str, Any]]:
@@ -197,11 +251,25 @@ class JiraClient:
 
     def get_all_tickets(self) -> List[Dict[str, Any]]:
         """Get all tickets in the project."""
+        ok, _ = self.ensure_project_selected()
+        if not ok:
+            return []
+
         jql = f"project = {self.project_key} ORDER BY created DESC"
         return self.search_tickets(jql)
 
     def get_project_summary(self) -> Dict[str, Any]:
         """Get a status breakdown summary for the current project."""
+        ok, _ = self.ensure_project_selected()
+        if not ok:
+            return {
+                "total": 0,
+                "done": 0,
+                "remaining": 0,
+                "by_status": {},
+                "tickets": [],
+            }
+
         all_tickets = self.get_all_tickets()
         status_counts: Dict[str, int] = {}
         for t in all_tickets:
@@ -219,6 +287,10 @@ class JiraClient:
 
     def add_comment(self, ticket_key: str, comment: str) -> Dict[str, Any]:
         """Add a comment to a ticket."""
+        ok, message = self.ensure_configured()
+        if not ok:
+            return {"success": False, "message": message}
+
         payload = {
             "body": {
                 "type": "doc",
@@ -244,6 +316,10 @@ class JiraClient:
 
     def get_comments(self, ticket_key: str) -> List[Dict[str, Any]]:
         """Get all comments for a ticket."""
+        ok, _ = self.ensure_configured()
+        if not ok:
+            return []
+
         try:
             response = self.session.get(
                 f"{self.url}/rest/api/3/issue/{ticket_key}/comment"
@@ -268,6 +344,10 @@ class JiraClient:
         transition_name: str
     ) -> Dict[str, Any]:
         """Transition a ticket to a new status."""
+        ok, message = self.ensure_configured()
+        if not ok:
+            return {"success": False, "message": message}
+
         try:
             response = self.session.get(
                 f"{self.url}/rest/api/3/issue/{ticket_key}/transitions"
@@ -298,6 +378,109 @@ class JiraClient:
             }
         except Exception as e:
             return {"success": False, "message": f"Error transitioning ticket: {e}"}
+
+    def find_assignable_users(self, ticket_key: str, query: str) -> List[Dict[str, Any]]:
+        """Find assignable users for an issue by display-name query."""
+        ok, _ = self.ensure_configured()
+        if not ok:
+            return []
+
+        try:
+            response = self.session.get(
+                f"{self.url}/rest/api/2/user/assignable/search",
+                params={
+                    "issueKey": ticket_key,
+                    "query": query,
+                    "maxResults": 50,
+                },
+            )
+            response.raise_for_status()
+            users = []
+            for user in response.json():
+                users.append({
+                    "accountId": user.get("accountId"),
+                    "displayName": user.get("displayName"),
+                    "active": user.get("active", True),
+                })
+            return users
+        except Exception as e:
+            print(f"Error finding assignable users: {e}")
+            return []
+
+    def assign_ticket(self, ticket_key: str, assignee_name: str) -> Dict[str, Any]:
+        """Assign a ticket to an exact unique Jira display name."""
+        ok, message = self.ensure_configured()
+        if not ok:
+            return {"success": False, "message": message}
+
+        normalized_name = assignee_name.strip()
+        if not normalized_name:
+            return {"success": False, "message": "Assignee name is required"}
+
+        users = self.find_assignable_users(ticket_key, normalized_name)
+        exact_matches = [
+            user for user in users
+            if (user.get("displayName") or "").casefold() == normalized_name.casefold()
+        ]
+
+        if not exact_matches:
+            suggestions = ", ".join(
+                user["displayName"]
+                for user in users[:5]
+                if user.get("displayName")
+            )
+            suffix = (
+                f" Similar assignable users: {suggestions}."
+                if suggestions else ""
+            )
+            return {
+                "success": False,
+                "message": (
+                    f"No assignable Jira user matched '{assignee_name}' for {ticket_key}."
+                    f"{suffix}"
+                ),
+            }
+
+        if len(exact_matches) > 1:
+            candidates = ", ".join(
+                user["displayName"]
+                for user in exact_matches[:5]
+                if user.get("displayName")
+            )
+            return {
+                "success": False,
+                "message": (
+                    f"Multiple assignable Jira users matched '{assignee_name}' for {ticket_key}: "
+                    f"{candidates}. Please be more specific."
+                ),
+            }
+
+        match = exact_matches[0]
+        account_id = match.get("accountId")
+        if not account_id:
+            return {
+                "success": False,
+                "message": f"Matched user '{match.get('displayName')}' is missing an accountId.",
+            }
+
+        try:
+            response = self.session.put(
+                f"{self.url}/rest/api/3/issue/{ticket_key}/assignee",
+                json={"accountId": account_id},
+                headers={"Content-Type": "application/json"},
+            )
+            response.raise_for_status()
+            return {
+                "success": True,
+                "message": f"Ticket {ticket_key} assigned to {match.get('displayName')}",
+                "data": {
+                    "ticket_key": ticket_key,
+                    "assignee_name": match.get("displayName"),
+                    "account_id": account_id,
+                },
+            }
+        except Exception as e:
+            return {"success": False, "message": f"Error assigning ticket: {e}"}
 
     def bulk_delete_tickets(
         self,
@@ -337,15 +520,23 @@ class JiraClient:
         """Extract plain text from Jira's document format."""
         if not description:
             return ""
-        content = description.get("content", [])
-        for item in content:
-            if item.get("type") == "paragraph":
-                text_parts = []
-                for text_item in item.get("content", []):
-                    if text_item.get("type") == "text":
-                        text_parts.append(text_item.get("text", ""))
-                return " ".join(text_parts)
-        return ""
+
+        def _flatten(node: Any) -> str:
+            if isinstance(node, list):
+                return "".join(_flatten(child) for child in node)
+            if not isinstance(node, dict):
+                return ""
+
+            if node.get("type") == "text":
+                return node.get("text", "")
+
+            text = "".join(_flatten(child) for child in node.get("content", []))
+            if node.get("type") in {"paragraph", "heading"}:
+                return f"{text}\n"
+            return text
+
+        text = _flatten(description)
+        return "\n".join(line.strip() for line in text.splitlines() if line.strip())
 
 
 jira_client = JiraClient()

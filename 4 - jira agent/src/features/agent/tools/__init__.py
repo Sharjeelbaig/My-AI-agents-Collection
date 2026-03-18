@@ -1,5 +1,6 @@
 from .registry import (
     create_ticket,
+    assign_ticket,
     delete_ticket,
     get_ticket,
     get_in_progress,
@@ -7,15 +8,19 @@ from .registry import (
     get_all_tickets,
     search_tickets,
     bulk_delete_tickets,
+    delete_tickets_by_status,
+    bulk_transition_tickets,
     add_comment,
     get_comments,
     transition_ticket,
+    get_project_summary,
     tools,
     tool_names,
 )
 
 __all__ = [
     "create_ticket",
+    "assign_ticket",
     "delete_ticket",
     "get_ticket",
     "get_in_progress",
@@ -23,9 +28,12 @@ __all__ = [
     "get_all_tickets",
     "search_tickets",
     "bulk_delete_tickets",
+    "delete_tickets_by_status",
+    "bulk_transition_tickets",
     "add_comment",
     "get_comments",
     "transition_ticket",
+    "get_project_summary",
     "tools",
     "tool_names",
 ]

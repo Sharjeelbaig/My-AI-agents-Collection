@@ -1,18 +1,24 @@
 from langchain_core.tools import StructuredTool
-from pydantic import BaseModel, Field
 from src.shared.jira_client import jira_client
+from src.features.agent.schemas import DeleteTicketInput
 
 
-class DeleteTicketInput(BaseModel):
-    ticket_key: str = Field(description="Jira ticket key (e.g., 'PROJ-123')")
-
-
-def delete_ticket_func(ticket_key: str) -> str:
+def delete_ticket_func(ticket_key: str, confirm: bool = False) -> str:
     """Delete a Jira ticket by its key."""
+    if not confirm:
+        return (
+            "You are about to delete 1 ticket(s):\n"
+            f"{ticket_key}\n\n"
+            "⚠️  This cannot be undone. Reply 'yes' to confirm."
+        )
+
     result = jira_client.delete_ticket(ticket_key)
     if result.get("success"):
-        return result.get("message", "Ticket deleted successfully")
-    return f"Failed to delete ticket: {result.get('message')}"
+        return f"✅ Deleted 1 ticket(s).\n  {ticket_key}"
+    return (
+        "❌ Failed to delete 1 ticket(s):\n"
+        f"  {ticket_key}: {result.get('message')}"
+    )
 
 
 delete_ticket = StructuredTool(
@@ -20,9 +26,10 @@ delete_ticket = StructuredTool(
     func=delete_ticket_func,
     description=(
         "Delete a single Jira ticket by its key. "
-        "Use this for deleting one ticket at a time. "
+        "Always call with confirm=false first to preview, then call again with "
+        "confirm=true once the user explicitly says yes. "
         "For deleting multiple tickets, use bulk_delete_tickets instead. "
-        "Args: ticket_key (required, e.g., 'PROJ-123')"
+        "Args: ticket_key (required, e.g., 'PROJ-123'), confirm (bool)"
     ),
     args_schema=DeleteTicketInput
 )

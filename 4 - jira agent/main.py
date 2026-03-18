@@ -23,6 +23,7 @@ def print_help():
     print("  exit/quit     - Exit the agent")
     print("\nNatural language commands:")
     print("  'create a ticket for...'")
+    print("  'assign PROJ-123 to Sharjeel Baig'")
     print("  'delete ticket PROJ-123'")
     print("  'show in progress tickets'")
     print("  'show done tickets'")
@@ -32,6 +33,7 @@ def print_help():
     print("  'add comment to PROJ-123: ...'")
     print("  'show comments for PROJ-123'")
     print("  'move PROJ-123 to In Progress/Done'")
+    print("\nNote: delete and move commands ask for confirmation before changing Jira.")
     print()
 
 
