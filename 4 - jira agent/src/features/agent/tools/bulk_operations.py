@@ -1,0 +1,216 @@
+from langchain_core.tools import StructuredTool
+from pydantic import BaseModel, Field
+from typing import List, Optional
+from src.shared.jira_client import jira_client
+
+
+# ─────────────────────────────────────────────────────────
+# Schema definitions
+# ─────────────────────────────────────────────────────────
+
+class BulkDeleteInput(BaseModel):
+    ticket_keys: List[str] = Field(
+        description="List of ticket keys to delete (e.g., ['PROJ-1', 'PROJ-2'])"
+    )
+    confirm: bool = Field(
+        default=False,
+        description="Set to true only after user confirms the deletion"
+    )
+
+
+class DeleteByStatusInput(BaseModel):
+    status: Optional[str] = Field(
+        default=None,
+        description=(
+            "Status of tickets to delete: 'Done', 'To Do', 'In Progress', etc. "
+            "Leave empty to delete ALL tickets in the project."
+        )
+    )
+    confirm: bool = Field(
+        default=False,
+        description="Must be true to execute. Always show count first, then set true after user confirms."
+    )
+
+
+class BulkTransitionInput(BaseModel):
+    from_status: Optional[str] = Field(
+        default=None,
+        description=(
+            "Only transition tickets currently in this status. "
+            "E.g. 'To Do', 'In Progress'. Leave empty to transition ALL tickets."
+        )
+    )
+    to_status: str = Field(
+        description="Target status to move tickets to (e.g. 'Done', 'In Progress', 'To Do')"
+    )
+
+
+# ─────────────────────────────────────────────────────────
+# Helpers
+# ─────────────────────────────────────────────────────────
+
+def _do_bulk_delete(ticket_keys: List[str]) -> str:
+    """Execute deletion for a list of ticket keys and return a summary."""
+    if not ticket_keys:
+        return "No tickets to delete."
+
+    results: dict = {"deleted": [], "failed": []}
+    for key in ticket_keys:
+        result = jira_client.delete_ticket(key)
+        if result.get("success"):
+            results["deleted"].append(key)
+        else:
+            results["failed"].append(f"{key}: {result.get('message')}")
+
+    lines = [f"✅ Deleted {len(results['deleted'])} ticket(s)."]
+    if results["deleted"]:
+        lines.append("  " + ", ".join(results["deleted"]))
+    if results["failed"]:
+        lines.append(f"❌ Failed to delete {len(results['failed'])} ticket(s):")
+        for e in results["failed"]:
+            lines.append(f"  {e}")
+    return "\n".join(lines)
+
+
+# ─────────────────────────────────────────────────────────
+# bulk_delete_tickets — delete an explicit list of keys
+# ─────────────────────────────────────────────────────────
+
+def bulk_delete_func(ticket_keys: List[str], confirm: bool = False) -> str:
+    """Delete multiple Jira tickets at once."""
+    if not ticket_keys:
+        return "No ticket keys provided. Please specify which tickets to delete."
+
+    if not confirm:
+        return (
+            f"You are about to delete {len(ticket_keys)} ticket(s):\n"
+            f"{', '.join(ticket_keys)}\n\n"
+            "⚠️  This cannot be undone. Reply 'yes' to confirm."
+        )
+
+    return _do_bulk_delete(ticket_keys)
+
+
+bulk_delete_tickets = StructuredTool(
+    name="bulk_delete_tickets",
+    func=bulk_delete_func,
+    description=(
+        "Delete a specific list of tickets by their keys. "
+        "First call with confirm=false to show what will be deleted, "
+        "then call again with confirm=true once user says yes. "
+        "Args: ticket_keys (required list of keys e.g. ['DEV-1','DEV-2']), confirm (bool)"
+    ),
+    args_schema=BulkDeleteInput,
+)
+
+
+# ─────────────────────────────────────────────────────────
+# delete_tickets_by_status — fetch + delete by status in one step
+# ─────────────────────────────────────────────────────────
+
+def delete_by_status_func(status: Optional[str] = None, confirm: bool = False) -> str:
+    """Fetch all tickets with a given status (or all tickets) and delete them."""
+    # Fetch the matching tickets
+    if status:
+        tickets = jira_client.get_tickets_by_status(status)
+        scope_label = f"with status '{status}'"
+    else:
+        tickets = jira_client.get_all_tickets()
+        scope_label = "in the project (ALL tickets)"
+
+    if not tickets:
+        return f"No tickets found {scope_label}. Nothing to delete."
+
+    keys = [t["key"] for t in tickets if t.get("key")]
+
+    if not confirm:
+        preview = "\n".join(
+            f"  [{t.get('key')}] {t.get('summary', '')} — {t.get('status')}"
+            for t in tickets[:20]
+        )
+        more = f"\n  ... and {len(tickets) - 20} more" if len(tickets) > 20 else ""
+        return (
+            f"Found {len(keys)} ticket(s) {scope_label}:\n"
+            f"{preview}{more}\n\n"
+            "⚠️  This cannot be undone. Reply 'yes' to confirm deletion."
+        )
+
+    return _do_bulk_delete(keys)
+
+
+delete_tickets_by_status = StructuredTool(
+    name="delete_tickets_by_status",
+    func=delete_by_status_func,
+    description=(
+        "Delete all tickets matching a status, or ALL tickets if no status given. "
+        "USE THIS instead of bulk_delete_tickets when user says things like: "
+        "'empty the done list', 'delete all to do tickets', 'clear the project', 'empty whole project'. "
+        "First call with confirm=false to preview what will be deleted, "
+        "then call with confirm=true after user confirms. "
+        "Args: status (optional, e.g. 'Done', 'To Do', 'In Progress'; omit for ALL), "
+        "confirm (bool, default false)"
+    ),
+    args_schema=DeleteByStatusInput,
+)
+
+
+# ─────────────────────────────────────────────────────────
+# bulk_transition_tickets — move all (or filtered) tickets to a new status
+# ─────────────────────────────────────────────────────────
+
+def bulk_transition_func(to_status: str, from_status: Optional[str] = None) -> str:
+    """Transition multiple tickets to a new status in one operation."""
+    if from_status:
+        tickets = jira_client.get_tickets_by_status(from_status)
+        scope_label = f"in '{from_status}'"
+    else:
+        tickets = jira_client.get_all_tickets()
+        scope_label = "in the project"
+
+    if not tickets:
+        return f"No tickets found {scope_label}. Nothing to transition."
+
+    moved, failed = [], []
+    for t in tickets:
+        key = t.get("key")
+        if not key:
+            continue
+        # Skip tickets already at the target status
+        if (t.get("status") or "").lower() == to_status.lower():
+            continue
+        result = jira_client.transition_ticket(key, to_status)
+        if result.get("success"):
+            moved.append(key)
+        else:
+            failed.append(f"{key}: {result.get('message')}")
+
+    lines = []
+    if moved:
+        lines.append(f"✅ Moved {len(moved)} ticket(s) to '{to_status}':")
+        lines.append("  " + ", ".join(moved))
+    if failed:
+        lines.append(f"❌ Failed to transition {len(failed)} ticket(s):")
+        for e in failed:
+            lines.append(f"  {e}")
+    if not moved and not failed:
+        lines.append(f"All tickets {scope_label} are already in '{to_status}'.")
+
+    return "\n".join(lines)
+
+
+bulk_transition_tickets = StructuredTool(
+    name="bulk_transition_tickets",
+    func=bulk_transition_func,
+    description=(
+        "Move multiple tickets to a new status in one step — NO confirmation needed (transitions are reversible). "
+        "USE THIS instead of calling transition_ticket one-by-one when user says things like: "
+        "'move all to do tickets to done', 'move everything in progress to done', "
+        "'mark all tickets as complete'. "
+        "Args: to_status (required, target status e.g. 'Done', 'In Progress', 'To Do'), "
+        "from_status (optional filter — only move tickets currently in this status)"
+    ),
+    args_schema=BulkTransitionInput,
+)
+
+
+__all__ = ["bulk_delete_tickets", "delete_tickets_by_status", "bulk_transition_tickets"]
