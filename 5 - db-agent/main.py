@@ -2,8 +2,12 @@ import os
 import sys
 from dotenv import load_dotenv
 from src.shared.db_client import db_client
+from rich.console import Console
+from rich.markdown import Markdown
 
 load_dotenv()
+
+console = Console()
 
 
 def print_banner():
@@ -78,7 +82,8 @@ def run_agent():
                 config={"configurable": {"thread_id": thread_id}},
             )
             response = result["messages"][-1].content
-            print(f"\n{response}")
+            print()
+            console.print(Markdown(response))
 
         except KeyboardInterrupt:
             print("\n\nInterrupted. Type 'exit' to quit or continue.")
