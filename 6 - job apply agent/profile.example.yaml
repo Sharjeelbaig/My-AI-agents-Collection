@@ -1,0 +1,95 @@
+# ----------------------------------------------------------------------------
+# Canonical job-application profile. Copy to profile.yaml and edit.
+#
+# Every field here corresponds to one or more keys that the form mapper knows
+# how to fill on Greenhouse / Lever / Ashby applications. You can leave fields
+# blank — they will simply be skipped during form fill.
+# ----------------------------------------------------------------------------
+
+basics:
+  first_name: Muhammad Sharjeel
+  last_name: Baig
+  full_name: Muhammad Sharjeel Baig
+  preferred_name: Sharjeel
+  email: eng.sharjeel.baig@gmail.com
+  phone: ""               # e.g. "+92 300 1234567"
+  current_title: ""       # e.g. "Senior Software Engineer"
+  current_company: ""
+
+location:
+  city: Lahore
+  state: Punjab
+  country: Pakistan
+  willing_to_relocate: true
+  remote_only: false
+
+links:
+  linkedin: https://www.linkedin.com/in/sharjeelbaig
+  github: https://github.com/Sharjeelbaig
+  portfolio: ""
+  website: ""
+  twitter: ""
+
+work_authorization:
+  # Set the country -> status pairs you legally can work in.
+  # Used to answer "Are you legally authorized to work in X?" and similar.
+  authorized_countries:
+    - Pakistan
+  requires_sponsorship_in:
+    - United States
+    - United Kingdom
+    - Germany
+    - Canada
+
+compensation:
+  # Annual base, currency optional. Used for salary fields.
+  expected_min: 0
+  expected_max: 0
+  currency: USD
+  notice_period_weeks: 4
+
+demographics:
+  # Optional self-ID (US EEO). Leave blank to skip.
+  gender: ""              # "Male" | "Female" | "Non-binary" | "Decline to self-identify"
+  ethnicity: ""
+  veteran_status: ""      # "I am not a veteran" | "I am a veteran" | ...
+  disability_status: ""
+
+education:
+  - school: ""
+    degree: ""
+    field_of_study: ""
+    start_date: ""        # YYYY-MM
+    end_date: ""          # YYYY-MM or "present"
+    gpa: ""
+
+experience:
+  - company: ""
+    title: ""
+    location: ""
+    start_date: ""
+    end_date: ""
+    summary: ""
+
+skills:
+  - JavaScript
+  - TypeScript
+  - React
+  - Node.js
+  - Python
+  - LangChain
+  - LangGraph
+
+# Free-text "tell us about yourself" — used as a fallback for cover-letter and
+# essay fields when the LLM has nothing else to lean on.
+elevator_pitch: |
+  AI-agent and full-stack engineer focused on production-grade LangChain /
+  LangGraph systems. I build tool-heavy agents that bias toward deterministic
+  behavior and only consult an LLM when reasoning is genuinely required.
+
+# Optional: pre-canned answers for common open questions.
+# Keys are matched case-insensitive against the question text (substring match).
+prepared_answers:
+  "why do you want to work here": ""
+  "what excites you about this role": ""
+  "tell us about a time": ""
