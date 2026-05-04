@@ -43,6 +43,23 @@ A voice-enabled AI search agent that combines speech-to-text with web search cap
 - Memory capabilities using LangGraph's MemorySaver
 - Structured responses with Pydantic schemas
 
+### 6. Job Apply Agent
+**Directory**: [`6 - job apply agent/`](6%20-%20job%20apply%20agent/)
+
+A tool-heavy job application agent. ~99% of the work is deterministic Python:
+parse the resume, search Greenhouse / Lever / Ashby boards, discover form
+fields, map them to profile values, fill the form with Playwright, log
+results in SQLite. The LLM is consulted only at two narrow decision points
+(ambiguous job-fit scoring and free-text question answers).
+
+#### Features:
+- YAML profile + optional resume PDF as input
+- Greenhouse / Lever / Ashby ATS adapters with deterministic search
+- Alias-table-driven field mapper (work-authorisation aware, country aware)
+- Playwright-based headless form filling with dry-run by default
+- SQLite tracker so re-runs skip jobs already considered
+- Pluggable LLM provider (Ollama default, OpenAI / Anthropic optional)
+
 ## Core Technologies
 
 All agents are built using the following core technologies:

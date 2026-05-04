@@ -1,0 +1,140 @@
+# ----------------------------------------------------------------------------
+# Canonical job-application profile. Copy to profile.yaml and edit.
+#
+# Every field here corresponds to one or more keys that the form mapper knows
+# how to fill on Greenhouse / Lever / Ashby applications. You can leave fields
+# blank — they will simply be skipped during form fill.
+#
+# Values below are taken verbatim from Sharjeel's resume so the agent has a
+# realistic working profile out of the box. Replace before deploying for
+# real applications.
+# ----------------------------------------------------------------------------
+
+basics:
+  first_name: Muhammad Sharjeel
+  last_name: Baig
+  full_name: Muhammad Sharjeel Baig
+  preferred_name: Sharjeel
+  email: eng.sharjeel.baig@gmail.com
+  phone: "+92 343 2595 361"
+  current_title: Frontend React Developer
+  current_company: Alternate States LTD.
+
+location:
+  city: Lahore
+  state: Punjab
+  country: Pakistan
+  willing_to_relocate: true
+  remote_only: false
+
+links:
+  linkedin: https://www.linkedin.com/in/sharjeelbaig
+  github: https://github.com/sharjeelbaig
+  portfolio: https://sharjeel-baig.pages.dev
+  website: https://sharjeel-baig.pages.dev
+  twitter: ""
+
+work_authorization:
+  # Set the country -> status pairs you legally can work in.
+  # Used to answer "Are you legally authorized to work in X?" and similar.
+  authorized_countries:
+    - Pakistan
+  requires_sponsorship_in:
+    - United States
+    - United Kingdom
+    - Germany
+    - Canada
+    - Australia
+    - Netherlands
+
+compensation:
+  # Annual base, currency optional. Used for salary fields.
+  expected_min: 0          # set before real applications
+  expected_max: 0
+  currency: USD
+  notice_period_weeks: 4
+
+demographics:
+  # Optional self-ID (US EEO). Leave blank to skip.
+  gender: ""              # "Male" | "Female" | "Non-binary" | "Decline to self-identify"
+  ethnicity: ""
+  veteran_status: ""      # "I am not a veteran" | "I am a veteran" | ...
+  disability_status: ""
+
+education:
+  - school: Bahria University
+    degree: Bachelor of Engineering
+    field_of_study: Computer Engineering
+    start_date: 2021-01
+    end_date: 2026-05
+    gpa: ""
+
+experience:
+  - company: Alternate States LTD.
+    title: Frontend React Developer
+    location: Remote
+    start_date: 2024-06
+    end_date: present
+    summary: |
+      Built production React interfaces for ThePrize.io, a Web3-powered
+      competition platform. Delivered reusable UI components across 4 core
+      user flows (contest browsing, entry, reward presentation, account
+      screens), integrated REST API flows with backend services, and
+      maintained component-level architecture for responsive product screens.
+  - company: Technologia Solutions LLC.
+    title: Full-Stack Software Engineer
+    location: Remote
+    start_date: 2022-12
+    end_date: 2024-05
+    summary: |
+      Contributed to 2 production AI platforms: Rankify AI (content creation)
+      and Edaly (secure education workflows). Built full-stack features and
+      REST APIs using React, Node.js, Express.js, PostgreSQL, Firebase, and
+      AI integrations across an 18-month full-stack engineering role.
+
+skills:
+  - React
+  - TypeScript
+  - JavaScript
+  - Node.js
+  - Express.js
+  - Next.js
+  - React Native
+  - Tailwind
+  - Redux
+  - HTML
+  - CSS
+  - Python
+  - Flask
+  - SQL
+  - PostgreSQL
+  - Firebase
+  - REST APIs
+  - RAG
+  - Generative AI
+  - Deep Learning
+  - LangChain
+  - LangGraph
+  - Azure
+  - AWS
+  - Vercel
+  - Cloudflare
+  - Oracle Cloud
+  - Java
+
+# Free-text "tell us about yourself" — used as a fallback for cover-letter and
+# essay fields when the LLM has nothing else to lean on.
+elevator_pitch: |
+  Software engineer with 3+ years across 2 companies delivering full-stack
+  web, AI, and cloud applications. Strong in React, TypeScript, Node.js,
+  Express.js, PostgreSQL, Firebase, REST APIs, RAG systems, and Generative
+  AI. I build maintainable product architectures, API flows, and AI-driven
+  user experiences — and I bias toward tool-heavy, deterministic agent
+  designs that only consult an LLM when reasoning is genuinely required.
+
+# Optional: pre-canned answers for common open questions.
+# Keys are matched case-insensitive against the question text (substring match).
+prepared_answers:
+  "why do you want to work here": ""
+  "what excites you about this role": ""
+  "tell us about a time": ""

@@ -1,0 +1,33 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Environment variables - NEVER commit these!
+.env
+.env.local
+.env.*.local
+
+# Local profile files - may contain personal data
+profile.yaml
+profile.json
+resume.pdf
+resume.docx
+
+# Application tracker DB
+applications.db
+applications.sqlite
+
+# Playwright auth state
+.playwright/
+storage_state.json
+
+# Logs
+logs/
+*.log
